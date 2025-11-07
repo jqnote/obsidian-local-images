@@ -45,3 +45,5 @@ npm run dev
 # It's useful to set a symlink so you don't have to copy files over constantly
 ln -s /home/user/code/obsidian-local-images /home/user/notes/dev/.obsidian/plugins/local-images
 ```
+
+111
