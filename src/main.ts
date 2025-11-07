@@ -37,7 +37,7 @@ export default class LocalImagesPlugin extends Plugin {
     const fixedContent = await replaceAsync(
       cleanedContent,
       EXTERNAL_MEDIA_LINK_PATTERN,
-      imageTagProcessor(this.app, this.settings.mediaRootDirectory)
+      imageTagProcessor(this.app, this.settings.mediaRootDirectory, this.settings.domainAuths)
     );
 
     if (content != fixedContent) {
@@ -339,5 +339,127 @@ class SettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    // Domain Authorization Settings
+    containerEl.createEl("h2", { text: "Domain Authorization" });
+
+    containerEl.createEl("p", {
+      text: "Configure authorization for domains that require authentication to download images.",
+    });
+
+    // Display existing domain auths
+    this.plugin.settings.domainAuths.forEach((auth, index) => {
+      this.createDomainAuthSetting(containerEl, auth, index);
+    });
+
+    // Add new domain auth button
+    new Setting(containerEl).addButton((button) =>
+      button
+        .setButtonText("Add Domain Authorization")
+        .setCta()
+        .onClick(async () => {
+          this.plugin.settings.domainAuths.push({
+            domain: "",
+            accessToken: "",
+            cookie: "",
+          });
+          await this.plugin.saveSettings();
+          this.display(); // Refresh the settings display
+        })
+    );
+  }
+
+  private createDomainAuthSetting(
+    containerEl: HTMLElement,
+    auth: any,
+    index: number
+  ): void {
+    const setting = new Setting(containerEl)
+      .setClass("domain-auth-setting")
+      .addButton((button) =>
+        button
+          .setButtonText("Delete")
+          .setWarning()
+          .onClick(async () => {
+            this.plugin.settings.domainAuths.splice(index, 1);
+            await this.plugin.saveSettings();
+            this.display(); // Refresh the settings display
+          })
+      );
+
+    setting.settingEl.createEl("h3", { text: `Domain ${index + 1}` });
+
+    // Domain input
+    new Setting(containerEl)
+      .setName("Domain")
+      .setDesc(
+        "Domain name (e.g., example.com or *.example.com for wildcard subdomain matching)"
+      )
+      .addText((text) =>
+        text.setValue(auth.domain).onChange(async (value) => {
+          this.plugin.settings.domainAuths[index].domain = value;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    // Access Token input
+    new Setting(containerEl)
+      .setName("Access Token")
+      .setDesc("Bearer token or access token for Authorization header")
+      .addText((text) => {
+        text.setValue(auth.accessToken || "").onChange(async (value) => {
+          this.plugin.settings.domainAuths[index].accessToken = value;
+          await this.plugin.saveSettings();
+        });
+        text.inputEl.type = "password";
+        return text;
+      });
+
+    // Cookie input
+    new Setting(containerEl)
+      .setName("Cookie")
+      .setDesc("Cookie string to be sent with the request")
+      .addTextArea((text) => {
+        text.setValue(auth.cookie || "").onChange(async (value) => {
+          this.plugin.settings.domainAuths[index].cookie = value;
+          await this.plugin.saveSettings();
+        });
+        text.inputEl.rows = 3;
+        text.inputEl.style.width = "100%";
+        return text;
+      });
+
+    // Custom Headers (JSON format)
+    new Setting(containerEl)
+      .setName("Custom Headers (JSON)")
+      .setDesc(
+        'Additional headers in JSON format, e.g., {"X-Api-Key": "value"}'
+      )
+      .addTextArea((text) => {
+        const headersStr = auth.headers
+          ? JSON.stringify(auth.headers, null, 2)
+          : "";
+        text.setValue(headersStr).onChange(async (value) => {
+          try {
+            if (value.trim()) {
+              const headers = JSON.parse(value);
+              this.plugin.settings.domainAuths[index].headers = headers;
+            } else {
+              this.plugin.settings.domainAuths[index].headers = undefined;
+            }
+            await this.plugin.saveSettings();
+          } catch (error) {
+            this.plugin.displayError(
+              "Invalid JSON format for custom headers"
+            );
+          }
+        });
+        text.inputEl.rows = 3;
+        text.inputEl.style.width = "100%";
+        return text;
+      });
+
+    // Add separator
+    containerEl.createEl("hr");
   }
 }

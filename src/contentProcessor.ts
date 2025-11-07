@@ -14,17 +14,18 @@ import {
   FILENAME_TEMPLATE,
   MAX_FILENAME_INDEX,
   FILENAME_ATTEMPTS,
+  IDomainAuth,
 } from "./config";
 import { linkHashes } from "./linksHash";
 
-export function imageTagProcessor(app: App, mediaDir: string) {
+export function imageTagProcessor(app: App, mediaDir: string, domainAuths: IDomainAuth[] = []) {
   async function processImageTag(match: string, anchor: string, link: string) {
     if (!isUrl(link)) {
       return match;
     }
 
     try {
-      const fileData = await downloadImage(link);
+      const fileData = await downloadImage(link, domainAuths);
 
       // when several images refer to the same file they can be partly
       // failed to download because file already exists, so try to resuggest filename several times

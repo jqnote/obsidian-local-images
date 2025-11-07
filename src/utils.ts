@@ -4,7 +4,7 @@ import { fromBuffer } from "file-type";
 import isSvg from "is-svg";
 import filenamify from "filenamify";
 
-import { DIRTY_IMAGE_TAG, FORBIDDEN_SYMBOLS_FILENAME_PATTERN } from "./config";
+import { DIRTY_IMAGE_TAG, FORBIDDEN_SYMBOLS_FILENAME_PATTERN, IDomainAuth } from "./config";
 /*
 https://stackoverflow.com/a/48032528/1020973
 It will be better to do it type-correct.
@@ -28,8 +28,55 @@ export function isUrl(link: string) {
   }
 }
 
-export async function downloadImage(url: string): Promise<ArrayBuffer> {
-  const res = await got(url, { responseType: "buffer" });
+export function findAuthForUrl(url: string, domainAuths: IDomainAuth[]): IDomainAuth | undefined {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname;
+    
+    // Find matching domain auth
+    return domainAuths.find(auth => {
+      const authDomain = auth.domain.toLowerCase().trim();
+      // Support exact match and wildcard subdomain matching
+      if (authDomain.startsWith('*.')) {
+        const baseDomain = authDomain.substring(2);
+        return hostname.endsWith(baseDomain);
+      }
+      return hostname === authDomain || hostname.endsWith('.' + authDomain);
+    });
+  } catch (error) {
+    console.error('Error parsing URL for auth:', error);
+    return undefined;
+  }
+}
+
+export async function downloadImage(url: string, domainAuths: IDomainAuth[] = []): Promise<ArrayBuffer> {
+  const auth = findAuthForUrl(url, domainAuths);
+  
+  const headers: Record<string, string> = {};
+  
+  if (auth) {
+    // Add access token to Authorization header
+    if (auth.accessToken) {
+      headers['Authorization'] = auth.accessToken.startsWith('Bearer ') 
+        ? auth.accessToken 
+        : `Bearer ${auth.accessToken}`;
+    }
+    
+    // Add cookie
+    if (auth.cookie) {
+      headers['Cookie'] = auth.cookie;
+    }
+    
+    // Add custom headers
+    if (auth.headers) {
+      Object.assign(headers, auth.headers);
+    }
+  }
+  
+  const res = await got(url, { 
+    responseType: "buffer",
+    headers: Object.keys(headers).length > 0 ? headers : undefined
+  });
   return res.body;
 }
 
