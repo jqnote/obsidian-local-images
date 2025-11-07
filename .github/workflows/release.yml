@@ -26,6 +26,7 @@ jobs:
                   npm ci
                   npm run build 
                   mkdir ${{ env.PLUGIN_NAME }}
+                  tree -L 2 -a
                   cp main.js manifest.json ${{ env.PLUGIN_NAME }}
                   zip -r ${{ env.PLUGIN_NAME }}.zip ${{ env.PLUGIN_NAME }}
                   ls
